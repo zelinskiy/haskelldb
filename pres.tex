@@ -1,0 +1,182 @@
+\documentclass[12pt]{beamer}
+\usetheme{Luebeck}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+\usepackage[english,russian]{babel}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\author{Nikita Yurchenko}
+\title{HaskellDB}
+\setbeamercovered{transparent} 
+%\setbeamertemplate{navigation symbols}{} 
+\logo{} 
+\institute{National University of Radioelectronics} 
+\date{30.12.2016} 
+%\subject{} 
+
+\lstset{
+basicstyle=\ttfamily, 
+columns=fullflexible, 
+numbers=left,
+commentstyle=\rm
+}
+
+\begin{document}
+
+\begin{frame}{Содержание}
+\titlepage
+\end{frame}
+
+\begin{frame}
+\tableofcontents
+\end{frame}
+
+\section{Обзор}
+\subsection{Вступление}
+\begin{frame}{Обзор}
+\begin{itemize}
+\item HaskellDB - Библиотека комбинаторов для языка Haskell, которые реализуют операторы реляционной алгебры типобезопасным и декларативным способом.
+\item Попытка DSL (Domain Specific Language) на базе TH (Template Haskell).
+\item Можно работать с БД не зная SQL, а только реляционную алгебру и Haskell.
+\item Изначально написанная Эриком Мейером библиотека использовала бекенд ADO и была игрушкой теоретиков (впрочем, ей она и осталась).
+\end{itemize}
+\end{frame}
+
+\subsection{Плюсы и минусы}
+\begin{frame}{Плюсы и минусы}
+С изменяемыми данными (в т.ч. БД) в Haskell из-за чистоты языка все традиционно обстоит довольно плохо.
+\begin{columns}
+\column{0.5\textwidth}
+\begin{itemize}
+\item[+] Интересно и необычно
+\item[+] Вкусный Haskell
+\item[+] Вкусная реляционная алгебра
+\item[+] Ошибки сводятся на нет благодаря типам
+\item[+] MySQL, PostgreSQL, SQLite
+\end{itemize}
+\column{0.5\textwidth}
+\begin{itemize}
+\item[-] Никому не нужно
+\item[-] Плохо переваривает особенности конкретных СУБД
+\item[-] Тормозит
+\item[-] Проблемы с ленью языка
+\end{itemize}
+\end{columns}
+\end{frame}
+
+
+\section{Функции и Типы}
+\subsection{Функции реляционной алгебры}
+\begin{frame}[fragile]
+\frametitle{Функции реляционной алгебры}
+\begin{lstlisting}
+restrict $ emps!E.xid .>. constant 2
+project $ E.name << emps!E.name
+intersect query1 query2
+union query1 query2
+minus query1 query2
+divide query1 query2
+\end{lstlisting}
+\end{frame}
+
+\subsection{Агрегатные и вспомогательные функции}
+\begin{frame}[fragile]
+\frametitle{Агрегатные и вспомогательные функции}
+\begin{lstlisting}
+top 10
+unique
+project $ E.xid << variance (emps!E.xid)
+project $ E.xid << count (emps!E.xid)
+project $ E.xid << avg (emps!E.xid)
+project $ E.xid << _min (emps!E.xid)
+restrict $ emps!E.xid .==. (cast "INT" (constant "2"))
+order [(desc emps E.xid), (asc emps E.name)]
+\end{lstlisting}
+\end{frame}
+
+\subsection{Типы}
+\begin{frame}[fragile]
+\frametitle{Типы}
+\begin{description}
+\item[Rel] Типизированное отношение
+\item[Attr] Типизированный атрибут
+\item[Query] Тип запроса (создается в монаде функциями)
+\item[Table] Самый непосредственно относящийся к самой БД тип
+\item[Expr] Тип выражения, инкапсулирует PrimExpr
+\end{description}
+\end{frame}
+
+\section{Примеры}
+\subsection{Описание схемы}
+\begin{frame}[fragile]
+\frametitle{Подключение к БД (описание БД)}
+Предположим, имеется некоторая SQLite БД с таблицей emp(id, name). Создадим файл createLayout.hs, скомпилируем и запустим его
+\begin{lstlisting}
+module Main where
+import ...
+
+dbdescr = DBInfo "Base" (DBOptions False mkIdentPreserving) [
+    TInfo "emp" [
+        CInfo "id" (IntT, False)
+      , CInfo "name" (StringT, False)]
+  ]
+
+main = dbInfoToModuleFiles "." "Base" dbdescr
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{[2] Подключение к БД (простой запрос)}
+\subsection{Запрашиваем данные}
+\begin{lstlisting}
+module Main where
+import ...
+import qualified Base.Emp as E
+
+getAllEmps db = query db $ do
+  emps <- table E.emp
+  project $ copyAll emps
+  
+withDb = sqliteConnect "DB.db"
+
+main = do
+  res <- withDb getAllEmps
+  print $ res
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Изменение данных}
+\subsection{Меняем данные}
+Расширим наш Main.hs, добавим новые функции
+\begin{lstlisting}
+addEmp :: Int -> String -> Database -> IO ()
+addEmp id name db = insert db E.emp $
+    E.xid <<- id
+  # E.name <<- name
+
+updEmp :: Int -> String -> Database -> IO ()
+updEmp id name db = do
+  update db
+         E.emp
+         (\e -> e!E.xid .==. constant id)
+         (\e -> E.name << constant name)
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Ссылки}
+\begin{itemize}
+\item \url{github.com/zelinskiy/haskelldb}
+\item \url{hackage.haskell.org/package/haskelldb}
+\item \url{hrisdone.com/posts/haskelldb-tutorial}
+\item \url{https://github.com/MasseR/haskelldb-example}
+\item \url{citeseerx.ist.psu.edu/viewdoc/
+download?doi=10.1.1.136.3828&rep=rep1&type=pdf}
+
+\end{itemize}
+\end{frame}
+
+\end{document}
