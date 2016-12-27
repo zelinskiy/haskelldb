@@ -23,15 +23,24 @@ numbers=left,
 commentstyle=\rm
 }
 
+\makeatletter
+    \newenvironment{withoutheadline}{
+        \setbeamertemplate{headline}[default]
+        \def\beamer@entrycode{\vspace*{-\headheight}}
+    }{}
+\makeatother
+
 \begin{document}
 
-\begin{frame}{Содержание}
+\begin{withoutheadline}
+\begin{frame}
 \titlepage
 \end{frame}
 
 \begin{frame}
 \tableofcontents
 \end{frame}
+\end{withoutheadline}
 
 \section{Обзор}
 \subsection{Вступление}
@@ -127,9 +136,9 @@ main = dbInfoToModuleFiles "." "Base" dbdescr
 \end{lstlisting}
 \end{frame}
 
-\begin{frame}[fragile]
-\frametitle{[2] Подключение к БД (простой запрос)}
 \subsection{Запрашиваем данные}
+\begin{frame}[fragile]
+\frametitle{Простой запрос}
 \begin{lstlisting}
 module Main where
 import ...
@@ -147,9 +156,9 @@ main = do
 \end{lstlisting}
 \end{frame}
 
+\subsection{Меняем данные}
 \begin{frame}[fragile]
 \frametitle{Изменение данных}
-\subsection{Меняем данные}
 Расширим наш Main.hs, добавим новые функции
 \begin{lstlisting}
 addEmp :: Int -> String -> Database -> IO ()
@@ -166,6 +175,7 @@ updEmp id name db = do
 \end{lstlisting}
 \end{frame}
 
+\begin{withoutheadline}
 \begin{frame}[fragile]
 \frametitle{Ссылки}
 \begin{itemize}
@@ -175,8 +185,8 @@ updEmp id name db = do
 \item \url{https://github.com/MasseR/haskelldb-example}
 \item \url{citeseerx.ist.psu.edu/viewdoc/
 download?doi=10.1.1.136.3828&rep=rep1&type=pdf}
-
 \end{itemize}
 \end{frame}
+\end{withoutheadline}
 
 \end{document}
